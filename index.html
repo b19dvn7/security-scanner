@@ -6,7 +6,7 @@
   <title>My First Website</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { min-height: 100vh; overflow: hidden; font-family: Arial, sans-serif; }
+    html, body { min-height: 100vh; overflow: hidden; }
     .bg {
       position: fixed; inset: 0;
       background: url("frustanswers-bg.png") center/cover no-repeat;
@@ -16,40 +16,26 @@
       position: fixed; inset: 0; width: 100%; height: 100%;
       z-index: 1; pointer-events: none;
     }
-    .logo {
+    .logo-glow {
       position: fixed;
       top: 23%; left: 50%;
       transform: translate(-50%, -50%);
+      width: 40vw; height: 8vh;
       z-index: 2;
-      font-size: clamp(20px, 4vw, 52px);
-      font-weight: 300;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: rgba(200, 225, 255, 0.15);
-      text-shadow: 0 0 10px rgba(75, 160, 255, 0.1);
-      animation: logoPulse 7s ease-in-out infinite;
       pointer-events: none;
-      user-select: none;
+      background: radial-gradient(ellipse, rgba(100,180,255,0.06) 0%, transparent 70%);
+      animation: logoPulse 7s ease-in-out infinite;
     }
     @keyframes logoPulse {
-      0%, 60%, 100% {
-        color: rgba(200, 225, 255, 0.12);
-        text-shadow: 0 0 10px rgba(75, 160, 255, 0.1);
-      }
-      70% {
-        color: rgba(200, 225, 255, 0.85);
-        text-shadow: 0 0 20px rgba(75, 160, 255, 0.5), 0 0 40px rgba(75, 160, 255, 0.3);
-      }
-      80% {
-        color: rgba(200, 225, 255, 0.25);
-        text-shadow: 0 0 8px rgba(75, 160, 255, 0.15);
-      }
+      0%, 55%, 100% { opacity: 0.3; }
+      65% { opacity: 1; }
+      78% { opacity: 0.5; }
     }
   </style>
 </head>
 <body>
   <div class="bg"></div>
-  <div class="logo">FRUSTANSWERS</div>
+  <div class="logo-glow"></div>
   <canvas id="c"></canvas>
   <script>
     const canvas = document.getElementById("c");
@@ -61,7 +47,7 @@
       h = canvas.height = window.innerHeight;
     }
 
-    function bezier(p0, p1, p2, p3, t) {
+    function bz(p0, p1, p2, p3, t) {
       const u = 1 - t;
       return {
         x: u*u*u*p0.x + 3*u*u*t*p1.x + 3*u*t*t*p2.x + t*t*t*p3.x,
@@ -69,7 +55,7 @@
       };
     }
 
-    const signalPaths = [
+    const paths = [
       { s:[0.02,0.78], c1:[0.18,0.73], c2:[0.35,0.66], e:[0.49,0.55] },
       { s:[0.05,0.84], c1:[0.22,0.78], c2:[0.38,0.69], e:[0.50,0.58] },
       { s:[0.10,0.70], c1:[0.25,0.66], c2:[0.40,0.60], e:[0.50,0.50] },
@@ -83,80 +69,87 @@
       { s:[0.50,0.70], c1:[0.50,0.62], c2:[0.50,0.48], e:[0.50,0.28] }
     ];
 
-    const particles = [];
-    const TAIL_SEGMENTS = 5;
-    const TAIL_STEP = 0.012;
+    const signals = [];
+    const STREAK_LEN = 0.018;
 
-    function initParticles() {
-      particles.length = 0;
-      for (let i = 0; i < signalPaths.length; i++) {
-        const count = i < 8 ? 2 : 1;
+    function makeSignal(pathIdx) {
+      const path = paths[pathIdx];
+      const earlyFade = 0.35 + Math.random() * 0.25;
+      const goesFar = Math.random() < 0.25;
+      const maxT = goesFar ? (0.75 + Math.random() * 0.25) : earlyFade;
+      return {
+        pathIdx,
+        t: Math.random() * maxT,
+        speed: 0.0015 + Math.random() * 0.0025,
+        maxT,
+        alpha: 0.25 + Math.random() * 0.3,
+        width: 0.6 + Math.random() * 0.5,
+        hue: 200 + Math.random() * 30
+      };
+    }
+
+    function init() {
+      signals.length = 0;
+      for (let i = 0; i < paths.length; i++) {
+        const count = i < 8 ? 1 : (Math.random() < 0.5 ? 1 : 0);
         for (let j = 0; j < count; j++) {
-          particles.push({
-            pathIndex: i,
-            t: Math.random(),
-            speed: 0.002 + Math.random() * 0.003
-          });
+          signals.push(makeSignal(i));
         }
       }
     }
 
-    function getPoint(path, t) {
-      const p0 = { x: path.s[0] * w, y: path.s[1] * h };
-      const p1 = { x: path.c1[0] * w, y: path.c1[1] * h };
-      const p2 = { x: path.c2[0] * w, y: path.c2[1] * h };
-      const p3 = { x: path.e[0] * w, y: path.e[1] * h };
-      return bezier(p0, p1, p2, p3, t);
+    function pt(path, t) {
+      return bz(
+        { x: path.s[0]*w, y: path.s[1]*h },
+        { x: path.c1[0]*w, y: path.c1[1]*h },
+        { x: path.c2[0]*w, y: path.c2[1]*h },
+        { x: path.e[0]*w, y: path.e[1]*h },
+        t
+      );
     }
-
-    const colors = [
-      "rgba(100,180,255,",
-      "rgba(140,210,255,",
-      "rgba(170,190,255,",
-      "rgba(120,200,240,"
-    ];
 
     function animate() {
       ctx.clearRect(0, 0, w, h);
-
       ctx.globalCompositeOperation = "lighter";
 
-      for (const p of particles) {
-        p.t += p.speed;
-        if (p.t > 1) p.t = 0;
-
-        const path = signalPaths[p.pathIndex];
-        const head = getPoint(path, p.t);
-        const col = colors[p.pathIndex % colors.length];
-
-        for (let i = TAIL_SEGMENTS; i >= 0; i--) {
-          const tt = Math.max(0, p.t - i * TAIL_STEP);
-          const pos = getPoint(path, tt);
-          const fade = 1 - i / (TAIL_SEGMENTS + 1);
-          const alpha = fade * 0.55;
-          const size = (1.2 - i * 0.15) * Math.max(0.5, 1 - p.t * 0.3);
-
-          if (i === 0) {
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, size * 1.5, 0, Math.PI * 2);
-            ctx.fillStyle = col + (alpha * 1.2) + ")";
-            ctx.fill();
-          }
-
-          ctx.beginPath();
-          ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
-          ctx.fillStyle = col + alpha + ")";
-          ctx.fill();
+      for (const s of signals) {
+        s.t += s.speed;
+        if (s.t > s.maxT) {
+          s.t = 0;
+          s.maxT = (Math.random() < 0.25) ? (0.75 + Math.random()*0.25) : (0.35 + Math.random()*0.25);
         }
+
+        const path = paths[s.pathIdx];
+        const progress = s.t / s.maxT;
+        const fade = 1 - progress * progress;
+        const a = s.alpha * fade;
+
+        if (a < 0.01) continue;
+
+        const head = pt(path, s.t);
+        const tail = pt(path, Math.max(0, s.t - STREAK_LEN));
+
+        ctx.beginPath();
+        ctx.moveTo(tail.x, tail.y);
+        ctx.lineTo(head.x, head.y);
+        ctx.strokeStyle = "hsla(" + s.hue + ",70%,72%," + a + ")";
+        ctx.lineWidth = s.width * fade;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(head.x, head.y, s.width * 0.5 * fade, 0, Math.PI * 2);
+        ctx.fillStyle = "hsla(" + s.hue + ",80%,82%," + (a * 0.4) + ")";
+        ctx.fill();
       }
 
       ctx.globalCompositeOperation = "source-over";
       requestAnimationFrame(animate);
     }
 
-    window.addEventListener("resize", () => { resize(); });
+    window.addEventListener("resize", resize);
     resize();
-    initParticles();
+    init();
     animate();
   </script>
 </body>
