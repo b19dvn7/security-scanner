@@ -6,7 +6,7 @@
   <title>My First Website</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { min-height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
+    html, body { min-height: 100vh; overflow: hidden; font-family: Arial, sans-serif; }
     .bg {
       position: fixed; inset: 0;
       background: url("frustanswers-bg.png") center/cover no-repeat;
@@ -16,94 +16,148 @@
       position: fixed; inset: 0; width: 100%; height: 100%;
       z-index: 1; pointer-events: none;
     }
+    .logo {
+      position: fixed;
+      top: 23%; left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      font-size: clamp(20px, 4vw, 52px);
+      font-weight: 300;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(200, 225, 255, 0.15);
+      text-shadow: 0 0 10px rgba(75, 160, 255, 0.1);
+      animation: logoPulse 7s ease-in-out infinite;
+      pointer-events: none;
+      user-select: none;
+    }
+    @keyframes logoPulse {
+      0%, 60%, 100% {
+        color: rgba(200, 225, 255, 0.12);
+        text-shadow: 0 0 10px rgba(75, 160, 255, 0.1);
+      }
+      70% {
+        color: rgba(200, 225, 255, 0.85);
+        text-shadow: 0 0 20px rgba(75, 160, 255, 0.5), 0 0 40px rgba(75, 160, 255, 0.3);
+      }
+      80% {
+        color: rgba(200, 225, 255, 0.25);
+        text-shadow: 0 0 8px rgba(75, 160, 255, 0.15);
+      }
+    }
   </style>
 </head>
 <body>
   <div class="bg"></div>
+  <div class="logo">FRUSTANSWERS</div>
   <canvas id="c"></canvas>
   <script>
     const canvas = document.getElementById("c");
     const ctx = canvas.getContext("2d");
-    let w, h, cx, cy;
-    const particles = [];
-    const COUNT = 200;
+    let w, h;
 
     function resize() {
       w = canvas.width = window.innerWidth;
       h = canvas.height = window.innerHeight;
-      cx = w / 2;
-      cy = h / 2;
     }
 
-    function make() {
-      const fromLeft = Math.random() > 0.5;
-      const startX = fromLeft ? -20 : w + 20;
-      const startY = Math.random() * h;
-      const targetX = cx + (Math.random() - 0.5) * 120;
-      const targetY = cy + (Math.random() - 0.5) * 80;
-      const speed = 0.003 + Math.random() * 0.006;
+    function bezier(p0, p1, p2, p3, t) {
+      const u = 1 - t;
       return {
-        startX, startY, targetX, targetY,
-        t: 0, speed,
-        size: 0.8 + Math.random() * 2,
-        alpha: 0.2 + Math.random() * 0.6,
-        trail: 20 + Math.random() * 50,
-        hue: 200 + Math.random() * 40
+        x: u*u*u*p0.x + 3*u*u*t*p1.x + 3*u*t*t*p2.x + t*t*t*p3.x,
+        y: u*u*u*p0.y + 3*u*u*t*p1.y + 3*u*t*t*p2.y + t*t*t*p3.y
       };
     }
 
-    function init() {
+    const signalPaths = [
+      { s:[0.02,0.78], c1:[0.18,0.73], c2:[0.35,0.66], e:[0.49,0.55] },
+      { s:[0.05,0.84], c1:[0.22,0.78], c2:[0.38,0.69], e:[0.50,0.58] },
+      { s:[0.10,0.70], c1:[0.25,0.66], c2:[0.40,0.60], e:[0.50,0.50] },
+      { s:[0.16,0.63], c1:[0.30,0.60], c2:[0.42,0.54], e:[0.50,0.45] },
+      { s:[0.98,0.78], c1:[0.82,0.73], c2:[0.65,0.66], e:[0.51,0.55] },
+      { s:[0.95,0.84], c1:[0.78,0.78], c2:[0.62,0.69], e:[0.50,0.58] },
+      { s:[0.90,0.70], c1:[0.75,0.66], c2:[0.60,0.60], e:[0.50,0.50] },
+      { s:[0.84,0.63], c1:[0.70,0.60], c2:[0.58,0.54], e:[0.50,0.45] },
+      { s:[0.47,0.78], c1:[0.48,0.68], c2:[0.49,0.55], e:[0.50,0.35] },
+      { s:[0.53,0.78], c1:[0.52,0.68], c2:[0.51,0.55], e:[0.50,0.35] },
+      { s:[0.50,0.70], c1:[0.50,0.62], c2:[0.50,0.48], e:[0.50,0.28] }
+    ];
+
+    const particles = [];
+    const TAIL_SEGMENTS = 5;
+    const TAIL_STEP = 0.012;
+
+    function initParticles() {
       particles.length = 0;
-      for (let i = 0; i < COUNT; i++) {
-        const p = make();
-        p.t = Math.random();
-        particles.push(p);
+      for (let i = 0; i < signalPaths.length; i++) {
+        const count = i < 8 ? 2 : 1;
+        for (let j = 0; j < count; j++) {
+          particles.push({
+            pathIndex: i,
+            t: Math.random(),
+            speed: 0.002 + Math.random() * 0.003
+          });
+        }
       }
     }
 
-    function draw(p) {
-      p.t += p.speed;
-      if (p.t > 1) { Object.assign(p, make()); p.t = 0; }
-
-      const ease = p.t * p.t * (3 - 2 * p.t);
-      const x = p.startX + (p.targetX - p.startX) * ease;
-      const y = p.startY + (p.targetY - p.startY) * ease;
-
-      const trailT = Math.max(0, p.t - 0.06);
-      const te = trailT * trailT * (3 - 2 * trailT);
-      const tx = p.startX + (p.targetX - p.startX) * te;
-      const ty = p.startY + (p.targetY - p.startY) * te;
-
-      const distFromEdge = Math.min(Math.abs(x - p.startX), Math.abs(w - x));
-      const maxDist = w / 2;
-      const progress = Math.min(distFromEdge / maxDist, 1);
-
-      const alpha = p.alpha * (1 - progress * 0.5);
-      const size = p.size * (1 - progress * 0.4);
-
-      const g = ctx.createLinearGradient(tx, ty, x, y);
-      g.addColorStop(0, "rgba(50,120,255,0)");
-      g.addColorStop(1, "hsla(" + p.hue + ",80%,75%," + alpha + ")");
-
-      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y);
-      ctx.strokeStyle = g; ctx.lineWidth = size; ctx.stroke();
-
-      ctx.beginPath(); ctx.arc(x, y, size * 0.9, 0, Math.PI * 2);
-      ctx.fillStyle = "hsla(" + p.hue + ",90%,85%," + (alpha * 0.8) + ")";
-      ctx.fill();
+    function getPoint(path, t) {
+      const p0 = { x: path.s[0] * w, y: path.s[1] * h };
+      const p1 = { x: path.c1[0] * w, y: path.c1[1] * h };
+      const p2 = { x: path.c2[0] * w, y: path.c2[1] * h };
+      const p3 = { x: path.e[0] * w, y: path.e[1] * h };
+      return bezier(p0, p1, p2, p3, t);
     }
+
+    const colors = [
+      "rgba(100,180,255,",
+      "rgba(140,210,255,",
+      "rgba(170,190,255,",
+      "rgba(120,200,240,"
+    ];
 
     function animate() {
       ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "rgba(2,6,13,0.12)"; ctx.fillRect(0, 0, w, h);
+
       ctx.globalCompositeOperation = "lighter";
-      for (const p of particles) draw(p);
+
+      for (const p of particles) {
+        p.t += p.speed;
+        if (p.t > 1) p.t = 0;
+
+        const path = signalPaths[p.pathIndex];
+        const head = getPoint(path, p.t);
+        const col = colors[p.pathIndex % colors.length];
+
+        for (let i = TAIL_SEGMENTS; i >= 0; i--) {
+          const tt = Math.max(0, p.t - i * TAIL_STEP);
+          const pos = getPoint(path, tt);
+          const fade = 1 - i / (TAIL_SEGMENTS + 1);
+          const alpha = fade * 0.55;
+          const size = (1.2 - i * 0.15) * Math.max(0.5, 1 - p.t * 0.3);
+
+          if (i === 0) {
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, size * 1.5, 0, Math.PI * 2);
+            ctx.fillStyle = col + (alpha * 1.2) + ")";
+            ctx.fill();
+          }
+
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
+          ctx.fillStyle = col + alpha + ")";
+          ctx.fill();
+        }
+      }
+
       ctx.globalCompositeOperation = "source-over";
       requestAnimationFrame(animate);
     }
 
-    window.addEventListener("resize", () => { resize(); init(); });
-    resize(); init(); animate();
+    window.addEventListener("resize", () => { resize(); });
+    resize();
+    initParticles();
+    animate();
   </script>
 </body>
 </html>
