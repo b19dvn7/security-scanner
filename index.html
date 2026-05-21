@@ -3,45 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Frustanswers - Coming Soon</title>
-
+  <title>My First Website</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      margin: 0;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
       min-height: 100%;
       overflow: hidden;
       font-family: Arial, sans-serif;
-      background: #02060d;
-      color: white;
     }
-
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .background-image {
+    .bg {
       position: fixed;
       inset: 0;
-      background-image:
-        linear-gradient(
-          rgba(2, 6, 13, 0.25),
-          rgba(2, 6, 13, 0.55)
-        ),
-        url("frustanswers-bg.png");
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      opacity: 0.45;
+      background: url("frustanswers-bg.png") center/cover no-repeat;
       z-index: 0;
     }
-
     canvas {
       position: fixed;
       inset: 0;
@@ -50,189 +25,59 @@
       z-index: 1;
       pointer-events: none;
     }
-
-    .content {
-      position: relative;
-      z-index: 2;
-      text-align: center;
-      padding: 32px;
-      max-width: 900px;
-    }
-
-    .brand {
-      font-size: clamp(38px, 7vw, 86px);
-      letter-spacing: 0.16em;
-      font-weight: 300;
-      text-transform: uppercase;
-      color: rgba(235, 245, 255, 0.92);
-      text-shadow:
-        0 0 12px rgba(75, 160, 255, 0.35),
-        0 0 32px rgba(75, 160, 255, 0.25);
-      margin: 0;
-    }
-
-    .tagline {
-      margin-top: 18px;
-      font-size: clamp(16px, 2.5vw, 24px);
-      color: rgba(220, 235, 255, 0.78);
-      letter-spacing: 0.08em;
-    }
-
-    .coming-soon {
-      margin-top: 42px;
-      font-size: 14px;
-      letter-spacing: 0.55em;
-      color: rgba(220, 235, 255, 0.52);
-      text-transform: uppercase;
-    }
-
-    .hint {
-      margin-top: 18px;
-      font-size: 14px;
-      color: rgba(220, 235, 255, 0.42);
-    }
-
-    @media (max-width: 600px) {
-      .brand {
-        letter-spacing: 0.08em;
-      }
-
-      .coming-soon {
-        letter-spacing: 0.32em;
-      }
-    }
   </style>
 </head>
-
 <body>
-  <div class="background-image"></div>
-  <canvas id="signalCanvas"></canvas>
-
-  <main class="content">
-    <h1 class="brand">Frustanswers</h1>
-    <p class="tagline">Signals from frustrated builders. Answers before the market moves.</p>
-    <div class="coming-soon">Coming Soon</div>
-    <div class="hint">Built by b19dvn7</div>
-  </main>
-
+  <div class="bg"></div>
+  <canvas id="c"></canvas>
   <script>
-    const canvas = document.getElementById("signalCanvas");
+    const canvas = document.getElementById("c");
     const ctx = canvas.getContext("2d");
-
-    let width;
-    let height;
-    let centerX;
-    let centerY;
-    let particles = [];
-
-    const PARTICLE_COUNT = 180;
-
-    function resizeCanvas() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-      centerX = width / 2;
-      centerY = height * 0.46;
+    let w, h, cx, cy;
+    const particles = [];
+    const COUNT = 180;
+    function resize() {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+      cx = w / 2;
+      cy = h * 0.46;
     }
-
-    function createParticle() {
-      const angle = Math.random() * Math.PI * 2;
-      const startRadius = Math.random() * 40;
-
-      return {
-        angle,
-        radius: startRadius,
-        speed: 1.2 + Math.random() * 3.2,
-        length: 18 + Math.random() * 70,
-        size: 0.6 + Math.random() * 1.8,
-        alpha: 0.12 + Math.random() * 0.42,
-        curve: (Math.random() - 0.5) * 0.012
-      };
+    function make() {
+      const a = Math.random() * Math.PI * 2;
+      return { a, r: Math.random() * Math.max(w, h), s: 1.2 + Math.random() * 3.2, l: 18 + Math.random() * 70, sz: 0.6 + Math.random() * 1.8, al: 0.12 + Math.random() * 0.42, c: (Math.random() - 0.5) * 0.012 };
     }
-
-    function resetParticle(particle) {
-      const fresh = createParticle();
-      particle.angle = fresh.angle;
-      particle.radius = fresh.radius;
-      particle.speed = fresh.speed;
-      particle.length = fresh.length;
-      particle.size = fresh.size;
-      particle.alpha = fresh.alpha;
-      particle.curve = fresh.curve;
+    function init() { particles.length = 0; for (let i = 0; i < COUNT; i++) particles.push(make()); }
+    function draw(p) {
+      p.a += p.c; p.r += p.s;
+      const max = Math.sqrt(w * w + h * h) * 0.62;
+      if (p.r > max) { Object.assign(p, make()); p.r = 0; return; }
+      const x = cx + Math.cos(p.a) * p.r;
+      const y = cy + Math.sin(p.a) * p.r * 0.62;
+      const t = Math.max(0, p.r - p.l);
+      const tx = cx + Math.cos(p.a) * t;
+      const ty = cy + Math.sin(p.a) * t * 0.62;
+      const d = p.r / max;
+      const al = p.al * d;
+      const lw = p.sz * (0.5 + d * 1.4);
+      const g = ctx.createLinearGradient(tx, ty, x, y);
+      g.addColorStop(0, "rgba(50,120,255,0)");
+      g.addColorStop(0.45, "rgba(70,155,255," + (al * 0.35) + ")");
+      g.addColorStop(1, "rgba(185,225,255," + al + ")");
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y);
+      ctx.strokeStyle = g; ctx.lineWidth = lw; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, lw * 0.85, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(190,230,255," + (al * 0.9) + ")"; ctx.fill();
     }
-
-    function initParticles() {
-      particles = [];
-      for (let i = 0; i < PARTICLE_COUNT; i++) {
-        const particle = createParticle();
-        particle.radius = Math.random() * Math.max(width, height);
-        particles.push(particle);
-      }
-    }
-
-    function drawParticle(particle) {
-      particle.angle += particle.curve;
-      particle.radius += particle.speed;
-
-      const maxRadius = Math.sqrt(width * width + height * height) * 0.62;
-
-      if (particle.radius > maxRadius) {
-        resetParticle(particle);
-      }
-
-      const x = centerX + Math.cos(particle.angle) * particle.radius;
-      const y = centerY + Math.sin(particle.angle) * particle.radius * 0.62;
-
-      const tailRadius = Math.max(0, particle.radius - particle.length);
-      const tailX = centerX + Math.cos(particle.angle) * tailRadius;
-      const tailY = centerY + Math.sin(particle.angle) * tailRadius * 0.62;
-
-      const depth = particle.radius / maxRadius;
-      const alpha = particle.alpha * depth;
-      const lineWidth = particle.size * (0.5 + depth * 1.4);
-
-      const gradient = ctx.createLinearGradient(tailX, tailY, x, y);
-      gradient.addColorStop(0, "rgba(50, 120, 255, 0)");
-      gradient.addColorStop(0.45, "rgba(70, 155, 255, " + (alpha * 0.35) + ")");
-      gradient.addColorStop(1, "rgba(185, 225, 255, " + alpha + ")");
-
-      ctx.beginPath();
-      ctx.moveTo(tailX, tailY);
-      ctx.lineTo(x, y);
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = lineWidth;
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(x, y, lineWidth * 0.85, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(190, 230, 255, " + (alpha * 0.9) + ")";
-      ctx.fill();
-    }
-
     function animate() {
-      ctx.clearRect(0, 0, width, height);
-
-      ctx.fillStyle = "rgba(2, 6, 13, 0.16)";
-      ctx.fillRect(0, 0, width, height);
-
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "rgba(2,6,13,0.16)"; ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = "lighter";
-
-      for (const particle of particles) {
-        drawParticle(particle);
-      }
-
+      for (const p of particles) draw(p);
       ctx.globalCompositeOperation = "source-over";
-
       requestAnimationFrame(animate);
     }
-
-    window.addEventListener("resize", () => {
-      resizeCanvas();
-      initParticles();
-    });
-
-    resizeCanvas();
-    initParticles();
-    animate();
+    window.addEventListener("resize", () => { resize(); init(); });
+    resize(); init(); animate();
   </script>
 </body>
 </html>
